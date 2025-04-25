@@ -25,7 +25,6 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
   try {
     const dataBuffer = fs.readFileSync(filePath);
 
-    // If PDF, first attempt pdf-parse
     if (req.file.mimetype === "application/pdf") {
       try {
         const data = await pdfParse(dataBuffer);
@@ -35,7 +34,6 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
       }
     }
 
-    // OCR fallback
     if (!extractedText) {
       const imagePaths = [];
 
@@ -43,7 +41,7 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         const pdf2pic = fromPath(filePath, {
           density: 150,
           saveFilename: "ocr_page",
-          savePath: "./uploads",
+          savePath: "/tmp",
           format: "png",
           width: 1000,
           height: 1000,
@@ -64,24 +62,7 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
       }
     }
 
-    const prompt = `You are an intelligent invoice parsing assistant. 
-From the invoice text below, extract the following details accurately:
-
-- "date": Invoice issue date (format: YYYY-MM-DD)
-- "description": A short summary of what the invoice is about
-- "tax_amount": The total tax amount mentioned (in numbers only)
-
-Return ONLY in the following JSON format:
-{
-  "date": "...",
-  "description": "...",
-  "tax_amount": "..."
-}
-
-If any field is missing, return an empty string for it.
-
-INVOICE TEXT:
-${extractedText}`;
+    const prompt = `You are an intelligent invoice parsing assistant. \nFrom the invoice text below, extract the following details accurately:\n\n- \"date\": Invoice issue date (format: YYYY-MM-DD)\n- \"description\": A short summary of what the invoice is about\n- \"tax_amount\": The total tax amount mentioned (in numbers only)\n\nReturn ONLY in the following JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nIf any field is missing, return an empty string for it.\n\nINVOICE TEXT:\n${extractedText}`;
 
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
