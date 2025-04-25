@@ -4,7 +4,7 @@ const pdfParse = require("pdf-parse");
 const Tesseract = require("tesseract.js");
 const fs = require("fs");
 const cors = require("cors");
-const { ask } = require("puter.js");
+const g4f = require("g4f");
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -26,33 +26,38 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         }
 
         const prompt = `
-Extract the following from this invoice:
+Extract the following from this invoice text:
 - Date
 - Description
 - Tax Amount
 
-Text:
-${extractedText}
-
-Reply in JSON format:
+Reply ONLY in this JSON format:
 {
   "date": "...",
   "description": "...",
   "tax_amount": "..."
 }
+
+Text:
+${extractedText}
         `.trim();
 
-        const response = await ask(prompt, { model: "gpt-4o-mini" });
-        res.json(JSON.parse(response.text));
+        const response = await g4f.chatCompletion({
+            model: "gpt-4", // or "gpt-3.5-turbo"
+            messages: [
+                { role: "user", content: prompt }
+            ]
+        });
+
+        res.json(JSON.parse(response));
     } catch (err) {
         console.error("Error:", err);
-        res.status(500).json({ error: "Failed to extract." });
+        res.status(500).json({ error: "Failed to extract invoice data." });
     } finally {
         fs.unlinkSync(filePath);
     }
 });
 
 app.listen(3000, () => {
-    console.log("Server running on port 3000");
+    console.log("Server running on http://localhost:3000");
 });
-
