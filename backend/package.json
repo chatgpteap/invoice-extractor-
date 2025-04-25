@@ -6,11 +6,12 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "axios": "^1.6.7",
     "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1",
-    "tesseract.js": "^4.0.2",
-    "g4f": "^1.0.2"
+    "tesseract.js": "^4.0.2"
   }
 }
