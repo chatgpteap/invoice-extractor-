@@ -4,7 +4,7 @@ import pandas as pd
 from io import StringIO
 
 # --- Configuration ---
-BACKEND_URL = "https://invoice-extractor-o6es.onrender.com"  # Replace with your actual backend URL
+BACKEND_URL = "https://invoice-backend.onrender.com/extract"  # Replace with your actual backend URL
 
 # --- App UI ---
 st.set_page_config(page_title="Invoice Extractor", layout="centered")
