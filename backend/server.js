@@ -41,7 +41,7 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         const pdf2pic = fromPath(filePath, {
           density: 150,
           saveFilename: "ocr_page",
-          savePath: "./tmp",
+          savePath: path.join(__dirname, "tmp"),
           format: "png",
           width: 1000,
           height: 1000,
