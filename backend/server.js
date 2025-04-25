@@ -5,6 +5,8 @@ const Tesseract = require("tesseract.js");
 const fs = require("fs");
 const cors = require("cors");
 const axios = require("axios");
+const path = require("path");
+const { fromPath } = require("pdf2pic");
 require("dotenv").config();
 
 const app = express();
@@ -34,10 +36,26 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
             }
         }
 
-        // If text is empty or not a PDF, try OCR with tesseract
+        // If text is empty or not a PDF, try OCR
         if (!extractedText) {
             try {
-                const { data: { text } } = await Tesseract.recognize(filePath, "eng");
+                let imagePath = filePath;
+
+                if (req.file.mimetype === "application/pdf") {
+                    const pdf2pic = fromPath(filePath, {
+                        density: 100,
+                        saveFilename: "converted_page",
+                        savePath: path.dirname(filePath),
+                        format: "png",
+                        width: 1000,
+                        height: 1000
+                    });
+
+                    const result = await pdf2pic(1);
+                    imagePath = result.path;
+                }
+
+                const { data: { text } } = await Tesseract.recognize(imagePath, "eng");
                 extractedText = text.trim();
             } catch (ocrErr) {
                 console.error("❌ OCR failed", ocrErr);
