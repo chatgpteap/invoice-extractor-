@@ -1,3 +1,5 @@
+--- 📁 backend/server.js ---
+
 const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
@@ -25,34 +27,26 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
             extractedText = text;
         }
 
-        const prompt = `
-Extract the following from this invoice text:
-- Date
-- Description
-- Tax Amount
-
-Reply ONLY in this JSON format:
-{
-  "date": "...",
-  "description": "...",
-  "tax_amount": "..."
-}
-
-Text:
-${extractedText}
-        `.trim();
+        const prompt = `Extract the following from this invoice text:\n- Date\n- Description\n- Tax Amount\n\nReply ONLY in this JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nText:\n${extractedText}`;
 
         const response = await g4f.chatCompletion({
-            model: "gpt-4", // or "gpt-3.5-turbo"
-            messages: [
-                { role: "user", content: prompt }
-            ]
+            model: "gpt-4",
+            messages: [{ role: "user", content: prompt }]
         });
 
-        res.json(JSON.parse(response));
+        console.log("🧠 Raw AI response:", response);
+
+        let jsonResponse;
+        try {
+            jsonResponse = JSON.parse(response);
+        } catch (parseErr) {
+            return res.status(500).json({ error: "AI response not in JSON format", raw: response });
+        }
+
+        res.json(jsonResponse);
     } catch (err) {
-        console.error("Error:", err);
-        res.status(500).json({ error: "Failed to extract invoice data." });
+        console.error("🔥 Server error:", err);
+        res.status(500).json({ error: "Server failed", details: err.message });
     } finally {
         fs.unlinkSync(filePath);
     }
