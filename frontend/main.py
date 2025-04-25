@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from io import StringIO
 
-BACKEND_URL = "https://invoice-extractor-o6es.onrender.com/extract"  # Replace with actual Render backend URL
+BACKEND_URL = "https://invoice-extractor-o6es.onrender.com/extract"
 
 st.set_page_config(page_title="Invoice Extractor", layout="centered")
 st.title("📄 Free Invoice Data Extractor (AI Powered)")
