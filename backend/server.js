@@ -4,7 +4,8 @@ const pdfParse = require("pdf-parse");
 const Tesseract = require("tesseract.js");
 const fs = require("fs");
 const cors = require("cors");
-const g4f = require("g4f");
+const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -32,18 +33,29 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
 
         const prompt = `Extract the following from this invoice text:\n- Date\n- Description\n- Tax Amount\n\nReply ONLY in this JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nText:\n${extractedText}`;
 
-        const response = await g4f.chatCompletion({
-            model: "gpt-4",
-            messages: [{ role: "user", content: prompt }]
-        });
+        const response = await axios.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+                model: "mixtral-8x7b-32768",
+                messages: [
+                    { role: "user", content: prompt }
+                ]
+            },
+            {
+                headers: {
+                    "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
 
-        console.log("🧠 Raw AI response:", response);
+        const resultText = response.data.choices[0].message.content;
 
         let jsonResponse;
         try {
-            jsonResponse = JSON.parse(response);
+            jsonResponse = JSON.parse(resultText);
         } catch (parseErr) {
-            return res.status(500).json({ error: "AI response not in JSON format", raw: response });
+            return res.status(500).json({ error: "AI response not in JSON format", raw: resultText });
         }
 
         res.json(jsonResponse);
