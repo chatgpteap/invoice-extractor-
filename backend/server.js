@@ -22,13 +22,27 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
     let extractedText = "";
 
     try {
+        const dataBuffer = fs.readFileSync(filePath);
+
+        // Try extracting text using pdf-parse if it's a PDF
         if (req.file.mimetype === "application/pdf") {
-            const dataBuffer = fs.readFileSync(filePath);
-            const data = await pdfParse(dataBuffer);
-            extractedText = data.text;
-        } else {
-            const { data: { text } } = await Tesseract.recognize(filePath, "eng");
-            extractedText = text;
+            try {
+                const data = await pdfParse(dataBuffer);
+                extractedText = data.text.trim();
+            } catch (err) {
+                console.warn("⚠️ pdf-parse failed, attempting OCR");
+            }
+        }
+
+        // If text is empty or not a PDF, try OCR with tesseract
+        if (!extractedText) {
+            try {
+                const { data: { text } } = await Tesseract.recognize(filePath, "eng");
+                extractedText = text.trim();
+            } catch (ocrErr) {
+                console.error("❌ OCR failed", ocrErr);
+                return res.status(500).json({ error: "Unable to read file using OCR." });
+            }
         }
 
         const prompt = `Extract the following from this invoice text:\n- Date\n- Description\n- Tax Amount\n\nReply ONLY in this JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nText:\n${extractedText}`;
