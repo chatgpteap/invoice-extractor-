@@ -5,7 +5,8 @@ const fs = require("fs");
 const cors = require("cors");
 const axios = require("axios");
 const path = require("path");
-const { fromPath } = require("pdf2pic");
+const { execSync } = require("child_process");
+const { v4: uuidv4 } = require("uuid");
 const Tesseract = require("tesseract.js");
 require("dotenv").config();
 
@@ -36,20 +37,29 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
 
     // OCR fallback if no text found
     if (!extractedText) {
-      const images = await fromPath(filePath, {
-        density: 200,
-        saveFilename: "ocr_page",
-        savePath: "./uploads",
-        format: "png",
-        width: 1280,
-        height: 1024,
-      }).bulk(-1);
+      const imageDir = path.join("uploads", `pdf_images_${uuidv4()}`);
+      fs.mkdirSync(imageDir);
 
-      const ocrResults = await Promise.all(
-        images.map(img => Tesseract.recognize(img.path, "eng"))
-      );
+      try {
+        // Convert PDF to PNG images using pdftoppm
+        execSync(`pdftoppm "${filePath}" "${path.join(imageDir, 'page')}" -png`);
 
-      extractedText = ocrResults.map(r => r.data.text).join("\n").trim();
+        const imageFiles = fs.readdirSync(imageDir).filter(f => f.endsWith(".png"));
+        const imagePaths = imageFiles.map(f => path.join(imageDir, f));
+
+        const ocrResults = await Promise.all(
+          imagePaths.map(imgPath => Tesseract.recognize(imgPath, "eng").then(result => result.data.text))
+        );
+
+        extractedText = ocrResults.join("\n").trim();
+
+        // Clean up converted images
+        imagePaths.forEach(p => fs.unlinkSync(p));
+        fs.rmdirSync(imageDir);
+      } catch (ocrErr) {
+        console.error("⚠️ OCR processing failed:", ocrErr);
+        return res.status(500).json({ error: "OCR processing failed", details: ocrErr.message });
+      }
     }
 
     if (!extractedText) {
