@@ -1,12 +1,10 @@
 const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
-const Tesseract = require("tesseract.js");
 const fs = require("fs");
 const cors = require("cors");
 const axios = require("axios");
 const path = require("path");
-const { fromPath } = require("pdf2pic");
 require("dotenv").config();
 
 const app = express();
@@ -30,36 +28,12 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         const data = await pdfParse(dataBuffer);
         extractedText = data.text.trim();
       } catch (err) {
-        console.warn("⚠️ pdf-parse failed, will try OCR");
+        console.warn("⚠️ pdf-parse failed, will try fallback");
       }
     }
 
     if (!extractedText) {
-      const imagePaths = [];
-
-      if (req.file.mimetype === "application/pdf") {
-        const pdf2pic = fromPath(filePath, {
-          density: 150,
-          saveFilename: "ocr_page",
-          savePath: path.join(__dirname, "tmp"),
-          format: "png",
-          width: 1000,
-          height: 1000,
-        });
-
-        const meta = await pdfParse(dataBuffer);
-        for (let i = 1; i <= meta.numpages; i++) {
-          const result = await pdf2pic(i);
-          if (result.path) imagePaths.push(result.path);
-        }
-      } else {
-        imagePaths.push(filePath);
-      }
-
-      for (const imgPath of imagePaths) {
-        const { data: { text } } = await Tesseract.recognize(imgPath, "eng");
-        extractedText += `\n${text.trim()}`;
-      }
+      return res.status(400).json({ error: "Could not extract text from PDF. Please upload a text-based PDF." });
     }
 
     const prompt = `You are an intelligent invoice parsing assistant. \nFrom the invoice text below, extract the following details accurately:\n\n- \"date\": Invoice issue date (format: YYYY-MM-DD)\n- \"description\": A short summary of what the invoice is about\n- \"tax_amount\": The total tax amount mentioned (in numbers only)\n\nReturn ONLY in the following JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nIf any field is missing, return an empty string for it.\n\nINVOICE TEXT:\n${extractedText}`;
