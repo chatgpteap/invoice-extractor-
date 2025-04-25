@@ -2,18 +2,18 @@
   "name": "invoice-backend",
   "version": "1.0.0",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "axios": "^1.6.7",
+    "axios": "^1.6.8",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1",
-    "pdf2pic": "^3.0.0",
-    "tesseract.js": "^2.1.5",
-    "uuid": "^9.0.0"
+    "tesseract.js": "^5.0.4",
+    "uuid": "^9.0.1"
   }
 }
