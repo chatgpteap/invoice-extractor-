@@ -5,6 +5,8 @@ const fs = require("fs");
 const cors = require("cors");
 const axios = require("axios");
 const path = require("path");
+const { fromPath } = require("pdf2pic");
+const Tesseract = require("tesseract.js");
 require("dotenv").config();
 
 const app = express();
@@ -28,8 +30,26 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         const data = await pdfParse(dataBuffer);
         extractedText = data.text.trim();
       } catch (err) {
-        console.warn("⚠️ pdf-parse failed, will try fallback");
+        console.warn("⚠️ pdf-parse failed, will try OCR fallback");
       }
+    }
+
+    // OCR fallback if no text found
+    if (!extractedText) {
+      const images = await fromPath(filePath, {
+        density: 200,
+        saveFilename: "ocr_page",
+        savePath: "./uploads",
+        format: "png",
+        width: 1280,
+        height: 1024,
+      }).bulk(-1);
+
+      const ocrResults = await Promise.all(
+        images.map(img => Tesseract.recognize(img.path, "eng"))
+      );
+
+      extractedText = ocrResults.map(r => r.data.text).join("\n").trim();
     }
 
     if (!extractedText) {
