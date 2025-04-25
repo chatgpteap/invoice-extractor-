@@ -1,23 +1,28 @@
-const express = require("express");
-const multer = require("multer");
-const pdfParse = require("pdf-parse");
-const fs = require("fs");
-const cors = require("cors");
-const axios = require("axios");
-const path = require("path");
-const { execSync } = require("child_process");
-const { v4: uuidv4 } = require("uuid");
-const Tesseract = require("tesseract.js");
-require("dotenv").config();
+import express from "express";
+import multer from "multer";
+import pdfParse from "pdf-parse";
+import fs from "fs";
+import cors from "cors";
+import axios from "axios";
+import path from "path";
+import { execSync } from "child_process";
+import { v4 as uuidv4 } from "uuid";
+import Tesseract from "tesseract.js";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
 
+dotenv.config();
 const app = express();
 const upload = multer({ dest: "uploads/" });
 
+// Fix for __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(cors());
-app.use(express.json());
 
 app.get("/", (req, res) => {
-  res.send("Invoice Extractor Backend is running ✅");
+  res.send("✅ Invoice Extractor Backend is running.");
 });
 
 app.post("/extract", upload.single("invoice"), async (req, res) => {
@@ -31,24 +36,24 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
       try {
         const data = await pdfParse(dataBuffer);
         extractedText = data.text.trim();
-      } catch (err) {
+      } catch {
         console.warn("⚠️ pdf-parse failed, will try OCR fallback");
       }
     }
 
-    // OCR fallback if no text found
     if (!extractedText) {
-      const imageDir = path.join("uploads", `pdf_images_${uuidv4()}`);
+      const imageDir = path.join(__dirname, "uploads", `pdf_images_${uuidv4()}`);
       fs.mkdirSync(imageDir);
 
       try {
-        execSync(`pdftoppm \"${filePath}\" \"${path.join(imageDir, 'page')}\" -png`);
-
+        execSync(`pdftoppm "${filePath}" "${path.join(imageDir, "page")}" -png`);
         const imageFiles = fs.readdirSync(imageDir).filter(f => f.endsWith(".png"));
         const imagePaths = imageFiles.map(f => path.join(imageDir, f));
 
         const ocrResults = await Promise.all(
-          imagePaths.map(imgPath => Tesseract.recognize(imgPath, "eng").then(result => result.data.text))
+          imagePaths.map(imgPath =>
+            Tesseract.recognize(imgPath, "eng").then(result => result.data.text)
+          )
         );
 
         extractedText = ocrResults.join("\n").trim();
@@ -56,16 +61,24 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
         imagePaths.forEach(p => fs.unlinkSync(p));
         fs.rmdirSync(imageDir);
       } catch (ocrErr) {
-        console.error("⚠️ OCR processing failed:", ocrErr);
+        console.error("❌ OCR processing failed:", ocrErr);
         return res.status(500).json({ error: "OCR processing failed", details: ocrErr.message });
       }
     }
 
     if (!extractedText) {
-      return res.status(400).json({ error: "Could not extract text from PDF. Please upload a text-based PDF." });
+      return res.status(400).json({ error: "Could not extract text from PDF. Please upload a text-based or clear scanned file." });
     }
 
-    const prompt = `You are an intelligent invoice parsing assistant. \nFrom the invoice text below, extract the following details accurately:\n\n- \"date\": Invoice issue date (format: YYYY-MM-DD)\n- \"description\": A short summary of what the invoice is about\n- \"tax_amount\": The total tax amount mentioned (in numbers only)\n\nReturn ONLY in the following JSON format:\n{\n  \"date\": \"...\",\n  \"description\": \"...\",\n  \"tax_amount\": \"...\"\n}\n\nIf any field is missing, return an empty string for it.\n\nINVOICE TEXT:\n${extractedText}`;
+    const prompt = `You are an invoice parser. Extract:
+- date (format: YYYY-MM-DD)
+- description
+- tax_amount (number only)
+Respond as JSON:
+{ "date": "...", "description": "...", "tax_amount": "..." }
+If missing, return empty string. 
+INVOICE TEXT: 
+${extractedText}`;
 
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
@@ -82,12 +95,12 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
     );
 
     const resultText = response.data.choices[0]?.message?.content;
-
     let jsonResponse;
+
     try {
       jsonResponse = JSON.parse(resultText);
     } catch {
-      return res.status(500).json({ error: "AI response not JSON", raw: resultText });
+      return res.status(500).json({ error: "AI response was not valid JSON", raw: resultText });
     }
 
     res.json(jsonResponse);
@@ -103,5 +116,5 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`🚀 Server listening on port ${PORT}`);
 });
