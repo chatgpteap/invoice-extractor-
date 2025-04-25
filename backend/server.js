@@ -1,5 +1,3 @@
---- 📁 backend/server.js ---
-
 const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
@@ -12,6 +10,11 @@ const app = express();
 const upload = multer({ dest: "uploads/" });
 
 app.use(cors());
+
+// Health check route
+app.get("/", (req, res) => {
+  res.send("Invoice Extractor Backend is running ✅");
+});
 
 app.post("/extract", upload.single("invoice"), async (req, res) => {
     const filePath = req.file.path;
