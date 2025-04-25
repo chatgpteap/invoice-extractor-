@@ -49,7 +49,8 @@ app.post("/extract", upload.single("invoice"), async (req, res) => {
             }
         );
 
-        const resultText = response.data.choices[0].message.content;
+        const resultText = response.data.choices[0]?.message?.content;
+        console.log("🧠 Raw AI response:", resultText);
 
         let jsonResponse;
         try {
